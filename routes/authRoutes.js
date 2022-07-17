@@ -4,14 +4,21 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const User = require("../models/User.model");
+const RefreshToken = require("../models/RefreshToken.model");
 const {
     signUpValidation,
     signInValidation,
 } = require("../validation/authValidation");
-const { TOKEN_SECRET = "tokensecret", SESS_NAME = "sid" } = process.env;
+const { checkAuth } = require("../middlewares/checkAuth");
 
-const generateToken = (payload) => {
-    return jwt.sign(payload, TOKEN_SECRET, { expiresIn: "1h" });
+const generateAccessToken = (payload) => {
+    return jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "120s",
+    });
+};
+
+const generateRefreshToken = (payload) => {
+    return jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET);
 };
 
 router.post("/sign-up", async (req, res) => {
@@ -26,12 +33,12 @@ router.post("/sign-up", async (req, res) => {
             password,
         });
         if (!valid) {
-            return res.status(400).json({ errors });
+            return res.status(401).json({ errors });
         }
 
         const existingEmail = await User.findOne({ email });
         if (existingEmail) {
-            return res.status(400).json({ error: "User with email exists" });
+            return res.status(401).json({ error: "User with email exists" });
         }
 
         const existingUsername = await User.findOne({ userName });
@@ -52,12 +59,19 @@ router.post("/sign-up", async (req, res) => {
         });
         await newUser.save();
 
-        const token = generateToken({ id: newUser._id });
-        req.session.token = token;
-
-        return res.status(201).json({
+        const payload = {
+            id: newUser._id,
             userName: newUser.userName,
             role: newUser.role,
+        };
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+
+        await RefreshToken({ token: refreshToken }).save();
+
+        return res.status(201).json({
+            accessToken,
+            refreshToken,
         });
     } catch (error) {
         console.log(error);
@@ -84,12 +98,19 @@ router.post("/sign-in", async (req, res) => {
             return res.status(401).json({ error: "Invalid email or password" });
         }
 
-        const token = generateToken({ id: user._id });
-        req.session.token = token;
-
-        return res.status(200).json({
+        const payload = {
+            id: user._id,
             userName: user.userName,
             role: user.role,
+        };
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+
+        await RefreshToken({ token: refreshToken }).save();
+
+        return res.status(200).json({
+            accessToken,
+            refreshToken,
         });
     } catch (error) {
         console.log(error);
@@ -115,17 +136,24 @@ router.post("/admin-sign-in", async (req, res) => {
         if (!validPassword) {
             return res.status(401).json({ error: "Invalid email or password" });
         }
-        
+
         if (user.role !== "admin") {
             return res.status(403).json({ error: "Unauthorized" });
         }
 
-        const token = generateToken({ id: user._id });
-        req.session.token = token;
-
-        return res.status(200).json({
+        const payload = {
+            id: user._id,
             userName: user.userName,
             role: user.role,
+        };
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+
+        await RefreshToken({ token: refreshToken }).save();
+
+        return res.status(200).json({
+            accessToken,
+            refreshToken,
         });
     } catch (error) {
         console.log(error);
@@ -133,44 +161,65 @@ router.post("/admin-sign-in", async (req, res) => {
     }
 });
 
-router.get("/check-auth", async (req, res) => {
-    const { token } = req.session;
-
-    if (!token) {
-        return res.sendStatus(401);
-    }
-
+router.post("/token", async (req, res) => {
     try {
-        const payload = jwt.verify(token, TOKEN_SECRET);
-        const user = await User.findById(payload.id);
-
-        if (!user) {
-            return res.status(404).send({ message: "User not found" });
+        const { token } = req.body;
+        if (!token) {
+            return res.sendStatus(401);
         }
 
-        return res.status(200).json({
-            userName: user.userName,
-            role: user.role,
+        const refreshToken = await RefreshToken.findOne({ token });
+        if (!refreshToken) {
+            return res.sendStatus(403);
+        }
+
+        const payload = jwt.verify(
+            refreshToken.token,
+            process.env.REFRESH_TOKEN_SECRET
+        );
+        const accessToken = generateAccessToken({
+            id: payload.id,
+            userName: payload.userName,
+            role: payload.role,
         });
+
+        return res.status(200).json({ accessToken });
     } catch (error) {
-        res.sendStatus(500);
-        throw new Error(error);
+        console.log(error);
+        return res.sendStatus(500);
     }
 });
 
-router.delete("/sign-out", (req, res) => {
-    const { token } = req.session;
-
-    if (!token) {
-        return res.sendStatus(401);
+router.get("/data", checkAuth, async (req, res) => {
+    try {
+        const user = req.user;
+        return res.status(200).json(user);
+    } catch (error) {
+        console.log(error);
+        return res.sendStatus(500);
     }
+});
 
-    req.session.destroy((err) => {
-        if (err) throw err;
+router.post("/sign-out", async (req, res) => {
+    try {
+        const { token } = req.body;
 
-        res.clearCookie(SESS_NAME);
+        if (!token) {
+            return res.sendStatus(401);
+        }
+
+        const refreshToken = await RefreshToken.findOne({ token });
+        if (!refreshToken) {
+            return res.sendStatus(401);
+        }
+
+        await RefreshToken.findByIdAndDelete(refreshToken._id);
+
         return res.status(204).json({ message: "Signed out successfully" });
-    });
+    } catch (error) {
+        console.log(error);
+        return res.sendStatus(500);
+    }
 });
 
 module.exports = router;

@@ -186,7 +186,7 @@ router.delete("/:categoryId/art-pieces", checkAdminAuth, async (req, res) => {
     }
 });
 
-router.delete("/:categoryId", async (req, res) => {
+router.delete("/:categoryId", checkAdminAuth, async (req, res) => {
     try {
         const { categoryId } = req.params;
         const existingCategory = await Category.findById(categoryId);

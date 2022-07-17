@@ -1,35 +1,49 @@
-const User = require("../models/User.model");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
 
 module.exports.checkAuth = (req, res, next) => {
-    const { userId } = req.session;
-
-    if (!userId) {
-        return res.status(401).send({ message: "Authorization failed" });
-    } else {
-        next();
-    }
-};
-
-module.exports.checkAdminAuth = async (req, res, next) => {
-    const { userId } = req.session;
-
-    if (!userId) {
-        return res.status(401).send({ message: "Authorization failed" });
-    }
-
     try {
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).send({ message: "User not found" });
-        }
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
 
-        if (user.role !== "admin") {
-            return res.status(401).send({ message: "Unauthorized" });
-        }
+        if (!token) return res.sendStatus(401);
 
-        next();
+        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, payload) => {
+            if (error) {
+                return res.sendStatus(401);
+            }
+
+            req.user = payload;
+            next();
+        });
     } catch (error) {
-        res.sendStatus(500);
-        throw new Error(error);
+        console.log(error);
+        return res.sendStatus(500);
     }
 };
+
+module.exports.checkAdminAuth = (req, res, next) => {
+    try {
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
+
+        if (!token) return res.sendStatus(401);
+
+        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, payload) => {
+            if (error) {
+                return res.sendStatus(401);
+            }
+
+            if (payload.role !== 'admin') {
+                return res.sendStatus(403);
+            }
+
+            req.user = payload;
+            next();
+        });
+    } catch (error) {
+        console.log(error);
+        return res.sendStatus(500);
+    }
+};
+
