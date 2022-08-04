@@ -43,9 +43,7 @@ router.post("/", checkAuth, async (req, res) => {
             cancel_url: `${process.env.CLIENT_BASE_URL}/cart`,
         });
 
-        const sessionDetails = await stripe.checkout.sessions.retrieve(
-            "cs_test_a1lwFedeSwZcivm5hRrMrG2lxGQsvqijcbOkh4LMH700dX3gd1B7c5nP5h"
-        );
+        const sessionDetails = await stripe.checkout.sessions.retrieve(session.id);
 
         if (sessionDetails.payment_status === "paid") {
             const newPurchase = new Purchase({
