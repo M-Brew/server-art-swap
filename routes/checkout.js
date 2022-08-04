@@ -39,8 +39,8 @@ router.post("/", checkAuth, async (req, res) => {
                 },
                 quantity: item.quantity,
             })),
-            success_url: "http://localhost:3000/checkout-successful",
-            cancel_url: "http://localhost:3000/cart",
+            success_url: `${process.env.CLIENT_BASE_URL}/checkout-successful`,
+            cancel_url: `${process.env.CLIENT_BASE_URL}/cart`,
         });
 
         const sessionDetails = await stripe.checkout.sessions.retrieve(
