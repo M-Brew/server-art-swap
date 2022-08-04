@@ -190,16 +190,6 @@ router.post("/token", async (req, res) => {
     }
 });
 
-router.get("/data", checkAuth, async (req, res) => {
-    try {
-        const user = req.user;
-        return res.status(200).json(user);
-    } catch (error) {
-        console.log(error);
-        return res.sendStatus(500);
-    }
-});
-
 router.post("/sign-out", async (req, res) => {
     try {
         const { token } = req.body;
