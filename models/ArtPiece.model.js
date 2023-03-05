@@ -1,5 +1,11 @@
 const { Schema, model } = require('mongoose');
 
+const sizeSchema = new Schema({
+    width: Number,
+    height: Number,
+    price: Number,
+});
+
 const artPieceSchema = new Schema(
     {
         title: String,
@@ -10,6 +16,7 @@ const artPieceSchema = new Schema(
         width: Number,
         height: Number,
         price: Number,
+        otherSizes: [sizeSchema],
         year: Number
     },
     {

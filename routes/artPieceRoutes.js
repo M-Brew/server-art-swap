@@ -7,94 +7,101 @@ const { uploadImage } = require("../middlewares/imageUpload");
 const { artPieceValidation } = require("../validation/artPieceValidation");
 const { checkAdminAuth } = require("../middlewares/checkAuth");
 
-router.post("/", checkAdminAuth, uploadImage.single("image"), async (req, res) => {
-    try {
-        const { title, categoryId, brief, width, height, price, year } =
-            req.body;
-        const image = req.file ? req.file.filename : "";
+router.post(
+    "/",
+    checkAdminAuth,
+    uploadImage.single("image"),
+    async (req, res) => {
+        try {
+            const { title, categoryId, brief, width, height, price, year } =
+                req.body;
+            const image = req.file ? req.file.filename : "";
 
-        const { valid, errors } = artPieceValidation({
-            title,
-            categoryId,
-            brief,
-            width,
-            height,
-            price,
-            year,
-        });
-        if (!valid) {
-            return res.status(400).json(errors);
-        }
-
-        if (image === "") {
-            return res.status(400).json({ image: "image is required" });
-        }
-
-        const existingCategory = await Category.findById(categoryId);
-        if (!existingCategory) {
-            return res.status(400).json({ error: "category does not exist" });
-        }
-
-        if (
-            !fs.existsSync(
-                path.join(
-                    __dirname,
-                    "../uploads",
-                    existingCategory._id.toString(),
-                    "art-pieces"
-                )
-            )
-        ) {
-            fs.mkdirSync(
-                path.join(
-                    __dirname,
-                    "../uploads",
-                    existingCategory._id.toString(),
-                    "art-pieces"
-                )
-            );
-        }
-
-        fs.rename(
-            path.join(__dirname, "../temp", image),
-            path.join(
-                __dirname,
-                "../uploads",
-                existingCategory._id.toString(),
-                "art-pieces",
-                image
-            ),
-            (error) => {
-                if (error) {
-                    throw new Error(error);
-                }
+            const { valid, errors } = artPieceValidation({
+                title,
+                categoryId,
+                brief,
+                width,
+                height,
+                price,
+                year,
+            });
+            if (!valid) {
+                return res.status(400).json(errors);
             }
-        );
 
-        const newArtPiece = new ArtPiece({
-            title,
-            categoryId,
-            brief,
-            width,
-            height,
-            price,
-            year,
-            image: `/uploads/${existingCategory._id.toString()}/art-pieces/${image}`,
-        });
-        const artPiece = await newArtPiece.save();
+            if (image === "") {
+                return res.status(400).json({ image: "image is required" });
+            }
 
-        await Category.findOneAndUpdate(
-            { _id: categoryId },
-            { artPieces: existingCategory.artPieces + 1 },
-            { new: true, useFindAndModify: false }
-        );
+            const existingCategory = await Category.findById(categoryId);
+            if (!existingCategory) {
+                return res
+                    .status(400)
+                    .json({ error: "category does not exist" });
+            }
 
-        return res.status(201).json({ artPiece });
-    } catch (error) {
-        res.sendStatus(500);
-        throw new Error(error);
+            if (
+                !fs.existsSync(
+                    path.join(
+                        __dirname,
+                        "../uploads",
+                        existingCategory._id.toString(),
+                        "art-pieces"
+                    )
+                )
+            ) {
+                fs.mkdirSync(
+                    path.join(
+                        __dirname,
+                        "../uploads",
+                        existingCategory._id.toString(),
+                        "art-pieces"
+                    )
+                );
+            }
+
+            fs.rename(
+                path.join(__dirname, "../temp", image),
+                path.join(
+                    __dirname,
+                    "../uploads",
+                    existingCategory._id.toString(),
+                    "art-pieces",
+                    image
+                ),
+                (error) => {
+                    if (error) {
+                        throw new Error(error);
+                    }
+                }
+            );
+
+            const newArtPiece = new ArtPiece({
+                title,
+                categoryId,
+                brief,
+                width,
+                height,
+                price,
+                year,
+                image: `/uploads/${existingCategory._id.toString()}/art-pieces/${image}`,
+            });
+            const artPiece = await newArtPiece.save();
+
+            await Category.findOneAndUpdate(
+                { _id: categoryId },
+                { artPieces: existingCategory.artPieces + 1 },
+                { new: true, useFindAndModify: false }
+            );
+
+            return res.status(201).json({ artPiece });
+        } catch (error) {
+            res.sendStatus(500);
+            throw new Error(error);
+        }
     }
-});
+);
 
 router.get("/", async (req, res) => {
     try {
@@ -137,74 +144,105 @@ router.get("/:artPieceId", async (req, res) => {
     }
 });
 
-router.put("/:artPieceId", checkAdminAuth, uploadImage.single("image"), async (req, res) => {
-    try {
-        const { artPieceId } = req.params;
-        const { title, categoryId, brief, width, height, price, year } =
-            req.body;
+router.put(
+    "/:artPieceId",
+    checkAdminAuth,
+    uploadImage.single("image"),
+    async (req, res) => {
+        try {
+            const { artPieceId } = req.params;
+            const {
+                title,
+                categoryId,
+                brief,
+                width,
+                height,
+                price,
+                year,
+                otherSizes,
+            } = req.body;
 
-        const { valid, errors } = artPieceValidation({
-            title,
-            categoryId,
-            brief,
-            width,
-            height,
-            price,
-            year,
-        });
-        if (!valid) {
-            return res.status(400).json({ errors });
-        }
-
-        const existingCategory = await Category.findById(categoryId);
-        if (!existingCategory) {
-            return res.status(404).json({ error: "category does not exist" });
-        }
-
-        const existingArtPiece = await ArtPiece.findById(artPieceId);
-        if (!existingArtPiece) {
-            return res.status(404).json({ error: "art piece not found" });
-        }
-
-        const updateData = {
-            title,
-            categoryId,
-            brief,
-            width,
-            height,
-            price,
-            year,
-        };
-        if (req.file) {
-            if (existingArtPiece.image && existingArtPiece.image !== "") {
-                fs.rename(
-                    path.join(__dirname, "../temp", req.file.filename),
-                    path.join(__dirname, "../uploads", existingCategory._id.toString(), 'art-pieces', req.file.filename),
-                    (error) => {
-                        if (error) {
-                            throw new Error(error);
-                        }
-                    }
-                );
-                fs.unlinkSync(
-                    path.join(__dirname, "../", existingArtPiece.image)
-                );
+            const { valid, errors } = artPieceValidation({
+                title,
+                categoryId,
+                brief,
+                width,
+                height,
+                price,
+                year,
+            });
+            if (!valid) {
+                return res.status(400).json({ errors });
             }
-            updateData.image = `/uploads/${existingCategory._id.toString()}/art-pieces/${req.file.filename}`;
+
+            const existingCategory = await Category.findById(categoryId);
+            if (!existingCategory) {
+                return res
+                    .status(404)
+                    .json({ error: "category does not exist" });
+            }
+
+            const existingArtPiece = await ArtPiece.findById(artPieceId);
+            if (!existingArtPiece) {
+                return res.status(404).json({ error: "art piece not found" });
+            }
+
+            const updateData = {
+                title,
+                categoryId,
+                brief,
+                width,
+                height,
+                price,
+                year,
+            };
+            if (req.file) {
+                if (existingArtPiece.image && existingArtPiece.image !== "") {
+                    fs.rename(
+                        path.join(__dirname, "../temp", req.file.filename),
+                        path.join(
+                            __dirname,
+                            "../uploads",
+                            existingCategory._id.toString(),
+                            "art-pieces",
+                            req.file.filename
+                        ),
+                        (error) => {
+                            if (error) {
+                                throw new Error(error);
+                            }
+                        }
+                    );
+                    fs.unlinkSync(
+                        path.join(__dirname, "../", existingArtPiece.image)
+                    );
+                }
+                updateData.image = `/uploads/${existingCategory._id.toString()}/art-pieces/${
+                    req.file.filename
+                }`;
+            }
+            if (otherSizes) {
+                const sizes = JSON.parse(otherSizes).map((size) => ({
+                    width: size.width ?? 0,
+                    height: size.height ?? 0,
+                    price: size.price ?? 0,
+                }));
+                updateData.otherSizes = sizes;
+            }
+
+            const updatedArtPiece = await ArtPiece.findOneAndUpdate(
+                { _id: artPieceId },
+                updateData,
+                { new: true, useFindAndModify: false }
+            );
+
+            return res.status(200).json({ artPiece: updatedArtPiece });
+        } catch (error) {
+            res.sendStatus(500);
+            throw new Error(error);
         }
-
-        const updatedArtPiece = await ArtPiece.findOneAndUpdate(
-            { _id: artPieceId },
-            updateData,
-            { new: true, useFindAndModify: false }
-        );
-
-        return res.status(200).json({ artPiece: updatedArtPiece });
-    } catch (error) {
-        res.sendStatus(500);
-        throw new Error(error);
     }
-});
+);
 
 router.delete("/:artPieceId", checkAdminAuth, async (req, res) => {
     try {
