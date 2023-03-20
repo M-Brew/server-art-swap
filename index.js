@@ -5,7 +5,7 @@ const path = require("path");
 
 require("dotenv").config();
 
-const { PORT = 5001, MONGO_URI = "mongodb://localhost/ART_SWAP_DB" } =
+const { PORT = 5001, MONGO_URI = "mongodb://localhost/DB_ART_SWAP" } =
     process.env;
 
 const app = express();
