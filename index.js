@@ -22,8 +22,8 @@ app.use("/api/users", require("./routes/usersRoutes"));
 app.use("/api/dashboard", require("./routes/dashboardRoutes"));
 app.use("/api/categories", require("./routes/categoryRoutes"));
 app.use("/api/art-pieces", require("./routes/artPieceRoutes"));
-app.use("/api/create-checkout-session", require("./routes/checkout"));
 app.use("/api/purchases", require("./routes/purchaseRoutes"));
+app.use("/api/checkout", require("./routes/checkout"));
 
 // db connection
 mongoose.connect(MONGO_URI);
