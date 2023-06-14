@@ -42,7 +42,7 @@ const initializePayment = (https, res, data) => {
   reqPaystack.end();
 };
 
-const verifyPayment = (https, ref) => {
+const verifyPayment = (https, ref, callback) => {
   const options = {
     hostname: "api.paystack.co",
     port: 443,
@@ -62,7 +62,7 @@ const verifyPayment = (https, ref) => {
       });
 
       resPaystack.on("end", () => {
-        console.log(JSON.parse(data));
+        callback(JSON.parse(data));
       });
     })
     .on("error", (error) => {
